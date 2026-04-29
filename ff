@@ -1,0 +1,157 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    int id, mat;
+    char nome[50], turma[20], escola[20], hospital [20], empresa[30];
+    float nota;
+} Aluno;
+
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+void arquivoInicial() {
+    FILE *f = fopen("alunos.txt", "r");
+    if (f == NULL) {
+        f = fopen("alunos.txt", "w");
+        if (f != NULL) {
+            fclose(f);
+            printf("Arquivo criado com sucesso.\n");
+        } else {
+            printf("Arquivo já existente.\n");
+        }
+    }
+}
+
+void adicionarAluno() {
+    Aluno a;
+    char confirma;
+
+    printf("\n==================================\n");
+    printf("       CADASTRO DE ALUNO          \n");
+    printf("==================================\n");
+    printf("ID: "); scanf("%d", &a.id);
+    printf("Matricula: "); scanf("%d", &a.mat);
+    limparBuffer();
+
+    printf("Nome: "); fgets(a.nome, 50, stdin);
+    a.nome[strcspn(a.nome, "\n")] = 0;
+
+    printf("Turma: "); fgets(a.turma, 20, stdin);
+    a.turma[strcspn(a.turma, "\n")] = 0;
+
+    printf("Nota: "); scanf("%f", &a.nota);
+    limparBuffer();
+
+    printf("\nDeseja salvar? (s/n): ");
+    scanf(" %c", &confirma);
+
+    if (confirma == 's' || confirma == 'S') {
+        FILE *f = fopen("alunos.txt", "a");
+        if (!f) return;
+        fprintf(f, "%d|%d|%s|%s|%.2f\n", a.id, a.mat, a.nome, a.turma, a.nota);
+        fclose(f);
+        printf("\n>>> SUCESSO: Salvo!\n");
+    }
+}
+
+void listarAlunos() {
+    FILE *f = fopen("alunos.txt", "r");
+    if (!f) {
+        printf("\n[!] Arquivo nao encontrado.\n");
+        return;
+    }
+
+    printf("\n============================================\n");
+    printf("         LISTA DE ALUNOS CADASTRADOS        \n");
+    printf("============================================\n");
+    printf("%-5s | %-10s | %-20s | %-10s | %-5s\n", "ID", "MATRIC.", "NOME", "TURMA", "NOTA");
+    printf("----------------------------------------------------------------------\n");
+
+    char linha[200];
+    while (fgets(linha, sizeof(linha), f)) {
+        linha[strcspn(linha, "\n")] = 0; 
+
+        char *id = strtok(linha, "|");
+        char *mat = strtok(NULL, "|");
+        char *nome = strtok(NULL, "|");
+        char *turma = strtok(NULL, "|");
+        char *nota = strtok(NULL, "|");
+
+        if (id && mat && nome && turma && nota) {
+            printf("%-5s | %-10s | %-20s | %-10s | %-5s\n", id, mat, nome, turma, nota);
+        }
+    }
+    fclose(f);
+    printf("----------------------------------------------------------------------\n");
+}
+
+void editarExcluir(int modo) { 
+    int idBusca, achou = 0;
+    printf("\nDigite o ID para %s: ", modo == 1 ? "EDITAR" : "EXCLUIR");
+    scanf("%d", &idBusca);
+    limparBuffer();
+
+    FILE *f = fopen("alunos.txt", "r");
+    FILE *temp = fopen("temp.txt", "w");
+    if (!f || !temp) return;
+
+    char linha[200];
+    while (fgets(linha, sizeof(linha), f)) {
+        char linhaOriginal[200];
+        strcpy(linhaOriginal, linha);
+
+        char *token = strtok(linha, "|");
+        if (!token) continue;
+        int idAtual = atoi(token);
+        
+        if (idAtual == idBusca) {
+            achou = 1;
+            if (modo == 1) { 
+                char *matOriginal = strtok(NULL, "|");
+                char nomeN[50], turmaN[20];
+                float notaN;
+
+                printf("Novo Nome: "); fgets(nomeN, 50, stdin); nomeN[strcspn(nomeN, "\n")] = 0;
+                printf("Nova Turma: "); fgets(turmaN, 20, stdin); turmaN[strcspn(turmaN, "\n")] = 0;
+                printf("Nova Nota: "); scanf("%f", &notaN); limparBuffer();
+                
+                fprintf(temp, "%d|%s|%s|%s|%.2f\n", idAtual, matOriginal, nomeN, turmaN, notaN);
+            }
+        } else {
+            fputs(linhaOriginal, temp); 
+        }
+    }
+    fclose(f); fclose(temp);
+    remove("alunos.txt"); rename("temp.txt", "alunos.txt");
+    printf(achou ? ">>> Operacao concluida!\n" : ">>> ID nao encontrado.\n");
+}
+
+int main() {
+    int op;
+    arquivoInicial();
+    do {
+        printf("Selecione o Banco de Dados que você deseja acessar\n");
+    }  while(op != 0);
+
+    do {
+        printf("\n==================================\n");
+        printf("     SISTEMA ACADÊMICO        \n");
+        printf("==================================\n");
+        printf("1. Adicionar Aluno\n2. Listar Alunos\n3. Editar Aluno\n4. Excluir Aluno\n0. Sair\n");
+        printf("----------------------------------\n");
+        printf("Opcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        switch(op) {
+            case 1: adicionarAluno(); break;
+            case 2: listarAlunos(); break;
+            case 3: editarExcluir(1); break;
+            case 4: editarExcluir(2); break;
+        }
+    } while(op != 0);
+    return 0;
+}
