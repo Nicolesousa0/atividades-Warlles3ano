@@ -1,0 +1,510 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char arquivoAtual[20];
+
+typedef struct {
+    int id;
+    char nome[50], infoExtra[20];
+    float valor;
+} Registro;
+
+typedef struct {
+    int id;
+    char nome[50];
+    char professor[50];
+    int cargaHoraria;
+} Disciplina;
+
+typedef struct {
+    int id;
+    int alunoID;
+    int disciplinaID;
+    float nota;
+} Matricula;
+
+typedef struct {
+    int id;
+    char nome[50];
+    char departamento[30];
+    char email[50];
+} Professor;
+
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+int gerarProximoID() {
+    FILE *f = fopen(arquivoAtual, "r");
+    if (f == NULL) return 1;
+    int id, maxID = 0;
+    char linha[200];
+    while (fgets(linha, sizeof(linha), f)) {
+        if (sscanf(linha, "%d|", &id) == 1) {
+            if (id > maxID) maxID = id;
+        }
+    }
+    fclose(f);
+    return maxID + 1;
+}
+
+void adicionar(char *tipo, char *labelExtra) {
+    Registro r;
+    char confirma;
+    r.id = gerarProximoID();
+
+    printf("\n==================================\n");
+    printf("    CADASTRAR %s\n", tipo);
+    printf("==================================\n");
+    printf("ID GERADO: %d (Automatico)\n", r.id);
+    
+    printf("Nome: "); fgets(r.nome, 50, stdin);
+    r.nome[strcspn(r.nome, "\n")] = 0;
+    
+    printf("%s: ", labelExtra); fgets(r.infoExtra, 20, stdin);
+    r.infoExtra[strcspn(r.infoExtra, "\n")] = 0;
+    
+    char buffer[100];
+    printf("Nota: ");
+    fgets(buffer, sizeof(buffer), stdin);
+    if (sscanf(buffer, "%f", &r.valor) != 1) {
+        r.valor = 0.0f;
+    }
+
+    printf("Confirmar salvamento em %s? (s/n): ", arquivoAtual);
+    fgets(buffer, sizeof(buffer), stdin);
+    confirma = buffer[0];
+    if (confirma == 's' || confirma == 'S') {
+        FILE *f = fopen(arquivoAtual, "a");
+        fprintf(f, "%d|%s|%s|%.2f\n", r.id, r.nome, r.infoExtra, r.valor);
+        fclose(f);
+        printf(">>> Sucesso: Registro %d salvo!\n", r.id);
+    }
+}
+
+void listar(char *labelExtra) {
+    FILE *f = fopen(arquivoAtual, "r");
+    if (!f) { printf("\n[!] Banco de dados vazio ou inexistente.\n"); return; }
+    
+    printf("\nID    | %-20s | %-15s | Nota\n", "NOME", labelExtra);
+    printf("------------------------------------------------------------\n");
+    char linha[200];
+    while (fgets(linha, sizeof(linha), f)) {
+        char *id = strtok(linha, "|");
+        char *nome = strtok(NULL, "|");
+        char *extra = strtok(NULL, "|");
+        char *val = strtok(NULL, "|");
+        if (id) printf("%-5s | %-20s | %-15s | %s", id, nome, extra, val);
+    }
+    fclose(f);
+}
+
+void adicionarDisciplina() {
+    Disciplina d;
+    char confirma;
+    d.id = gerarProximoID();
+
+    printf("\n==================================\n");
+    printf("    CADASTRAR DISCIPLINA\n");
+    printf("==================================\n");
+    printf("ID GERADO: %d\n", d.id);
+    
+    printf("Nome da Disciplina: "); fgets(d.nome, 50, stdin);
+    d.nome[strcspn(d.nome, "\n")] = 0;
+    
+    printf("Professor: "); fgets(d.professor, 50, stdin);
+    d.professor[strcspn(d.professor, "\n")] = 0;
+    
+    printf("Carga Horaria: "); scanf("%d", &d.cargaHoraria);
+    limparBuffer();
+
+    printf("Confirmar salvamento? (s/n): ");
+    scanf(" %c", &confirma);
+    if (confirma == 's' || confirma == 'S') {
+        FILE *f = fopen("disciplinas.txt", "a");
+        fprintf(f, "%d|%s|%s|%d\n", d.id, d.nome, d.professor, d.cargaHoraria);
+        fclose(f);
+        printf(">>> Sucesso: Disciplina %d salva!\n", d.id);
+    }
+}
+
+void listarDisciplinas() {
+    FILE *f = fopen("disciplinas.txt", "r");
+    if (!f) { printf("\n[!] Nenhuma disciplina cadastrada.\n"); return; }
+    
+    printf("\nID    | %-25s | %-20s | Carga Horaria\n", "DISCIPLINA", "PROFESSOR");
+    printf("-----------------------------------------------------------------------\n");
+    char linha[200];
+    while (fgets(linha, sizeof(linha), f)) {
+        int id, carga;
+        char nome[50], prof[50];
+        if (sscanf(linha, "%d|%49[^|]|%49[^|]|%d", &id, nome, prof, &carga) == 4) {
+            printf("%-5d | %-25s | %-20s | %d h\n", id, nome, prof, carga);
+        }
+    }
+    fclose(f);
+}
+
+void alterarDisciplina() {
+    int idBusca;
+    printf("\nDigite o ID da disciplina a alterar: ");
+    scanf("%d", &idBusca);
+    limparBuffer();
+
+    FILE *f = fopen("disciplinas.txt", "r");
+    FILE *temp = fopen("temp_disciplinas.txt", "w");
+    if (!f || !temp) { printf("[!] Erro ao abrir arquivo.\n"); return; }
+
+    int id, carga;
+    char nome[50], prof[50];
+    int encontrado = 0;
+
+    while (fscanf(f, "%d|%49[^|]|%49[^|]|%d", &id, nome, prof, &carga) == 4) {
+        if (id == idBusca) {
+            encontrado = 1;
+            printf("Disciplina: %s\nProfessor: %s\nCarga: %d h\n", nome, prof, carga);
+            printf("\nNovo Nome: "); fgets(nome, 50, stdin);
+            nome[strcspn(nome, "\n")] = 0;
+            printf("Novo Professor: "); fgets(prof, 50, stdin);
+            prof[strcspn(prof, "\n")] = 0;
+            printf("Nova Carga Horaria: "); scanf("%d", &carga);
+            limparBuffer();
+        }
+        fprintf(temp, "%d|%s|%s|%d\n", id, nome, prof, carga);
+    }
+
+    fclose(f);
+    fclose(temp);
+    remove("disciplinas.txt");
+    rename("temp_disciplinas.txt", "disciplinas.txt");
+
+    if (encontrado) printf(">>> Sucesso: Disciplina atualizada!\n");
+    else printf("[!] Disciplina nao encontrada.\n");
+}
+
+void adicionarProfessor() {
+    Professor p;
+    char confirma;
+    p.id = gerarProximoID();
+
+    printf("\n==================================\n");
+    printf("    CADASTRAR PROFESSOR\n");
+    printf("==================================\n");
+    printf("ID GERADO: %d\n", p.id);
+    
+    printf("Nome: "); fgets(p.nome, 50, stdin);
+    p.nome[strcspn(p.nome, "\n")] = 0;
+    
+    printf("Departamento: "); fgets(p.departamento, 30, stdin);
+    p.departamento[strcspn(p.departamento, "\n")] = 0;
+    
+    printf("Email: "); fgets(p.email, 50, stdin);
+    p.email[strcspn(p.email, "\n")] = 0;
+    
+    limparBuffer();
+    printf("Confirmar salvamento? (s/n): ");
+    scanf(" %c", &confirma);
+    if (confirma == 's' || confirma == 'S') {
+        FILE *f = fopen("professores.txt", "a");
+        fprintf(f, "%d|%s|%s|%s\n", p.id, p.nome, p.departamento, p.email);
+        fclose(f);
+        printf(">>> Sucesso: Professor %d salvo!\n", p.id);
+    }
+}
+
+void listarProfessores() {
+    FILE *f = fopen("professores.txt", "r");
+    if (!f) { printf("\n[!] Nenhum professor cadastrado.\n"); return; }
+    
+    printf("\nID    | %-20s | %-20s | %-30s\n", "NOME", "DEPARTAMENTO", "EMAIL");
+    printf("------------------------------------------------------------------------\n");
+    int id;
+    char nome[50], depto[30], email[50];
+    while (fscanf(f, "%d|%49[^|]|%29[^|]|%49[^\n]", &id, nome, depto, email) == 4) {
+        printf("%-5d | %-20s | %-20s | %-30s\n", id, nome, depto, email);
+    }
+    fclose(f);
+}
+
+void alterarProfessor() {
+    int idBusca;
+    printf("\nDigite o ID do professor a alterar: ");
+    scanf("%d", &idBusca);
+    limparBuffer();
+
+    FILE *f = fopen("professores.txt", "r");
+    FILE *temp = fopen("temp_professores.txt", "w");
+    if (!f || !temp) { printf("[!] Erro ao abrir arquivo.\n"); return; }
+
+    int id;
+    char nome[50], depto[30], email[50];
+    int encontrado = 0;
+
+    while (fscanf(f, "%d|%49[^|]|%29[^|]|%49[^\n]", &id, nome, depto, email) == 4) {
+        if (id == idBusca) {
+            encontrado = 1;
+            printf("Nome: %s\nDepartamento: %s\nEmail: %s\n", nome, depto, email);
+            printf("\nNovo Nome: "); fgets(nome, 50, stdin);
+            nome[strcspn(nome, "\n")] = 0;
+            printf("Novo Departamento: "); fgets(depto, 30, stdin);
+            depto[strcspn(depto, "\n")] = 0;
+            printf("Novo Email: "); fgets(email, 50, stdin);
+            email[strcspn(email, "\n")] = 0;
+        }
+        fprintf(temp, "%d|%s|%s|%s\n", id, nome, depto, email);
+    }
+
+    fclose(f);
+    fclose(temp);
+    remove("professores.txt");
+    rename("temp_professores.txt", "professores.txt");
+
+    if (encontrado) printf(">>> Sucesso: Professor atualizado!\n");
+    else printf("[!] Professor nao encontrado.\n");
+}
+
+void adicionarMatricula() {
+    Matricula m;
+    char confirma;
+    m.id = gerarProximoID();
+
+    printf("\n==================================\n");
+    printf("    CADASTRAR MATRICULA\n");
+    printf("==================================\n");
+    printf("ID GERADO: %d\n", m.id);
+    
+    printf("ID do Aluno: "); scanf("%d", &m.alunoID);
+    printf("ID da Disciplina: "); scanf("%d", &m.disciplinaID);
+    printf("Nota: "); scanf("%f", &m.nota);
+    limparBuffer();
+
+    printf("Confirmar salvamento? (s/n): ");
+    scanf(" %c", &confirma);
+    if (confirma == 's' || confirma == 'S') {
+        FILE *f = fopen("matriculas.txt", "a");
+        fprintf(f, "%d|%d|%d|%.2f\n", m.id, m.alunoID, m.disciplinaID, m.nota);
+        fclose(f);
+        printf(">>> Sucesso: Matricula %d salva!\n", m.id);
+    }
+}
+
+void listarMatriculas() {
+    FILE *f = fopen("matriculas.txt", "r");
+    if (!f) { printf("\n[!] Nenhuma matricula cadastrada.\n"); return; }
+    
+    printf("\nID    | ID Aluno | ID Disciplina | Nota\n");
+    printf("---------------------------------------------\n");
+    int id, alunoID, discID;
+    float nota;
+    while (fscanf(f, "%d|%d|%d|%f", &id, &alunoID, &discID, &nota) == 4) {
+        printf("%-5d | %-8d | %-13d | %.2f\n", id, alunoID, discID, nota);
+    }
+    fclose(f);
+}
+
+void alterarMatricula() {
+    int idBusca;
+    printf("\nDigite o ID da matricula a alterar: ");
+    scanf("%d", &idBusca);
+    limparBuffer();
+
+    FILE *f = fopen("matriculas.txt", "r");
+    FILE *temp = fopen("temp_matriculas.txt", "w");
+    if (!f || !temp) { printf("[!] Erro ao abrir arquivo.\n"); return; }
+
+    int id, alunoID, discID;
+    float nota;
+    int encontrado = 0;
+
+    while (fscanf(f, "%d|%d|%d|%f", &id, &alunoID, &discID, &nota) == 4) {
+        if (id == idBusca) {
+            encontrado = 1;
+            printf("Aluno ID: %d\nDisciplina ID: %d\nNota: %.2f\n", alunoID, discID, nota);
+            printf("\nNova Nota: "); scanf("%f", &nota);
+            limparBuffer();
+        }
+        fprintf(temp, "%d|%d|%d|%.2f\n", id, alunoID, discID, nota);
+    }
+
+    fclose(f);
+    fclose(temp);
+    remove("matriculas.txt");
+    rename("temp_matriculas.txt", "matriculas.txt");
+
+    if (encontrado) printf(">>> Sucesso: Matricula atualizada!\n");
+    else printf("[!] Matricula nao encontrada.\n");
+}
+
+void alterarAluno() {
+    int idBusca;
+    printf("\nDigite o ID do aluno a alterar: ");
+    scanf("%d", &idBusca);
+    limparBuffer();
+
+    FILE *f = fopen("alunos.txt", "r");
+    FILE *temp = fopen("temp_alunos.txt", "w");
+    if (!f || !temp) { printf("[!] Erro ao abrir arquivo.\n"); return; }
+
+    int id;
+    char nome[50], turma[20];
+    float nota;
+    int encontrado = 0;
+    char linha[200];
+    while (fgets(linha, sizeof(linha), f)) {
+        if (sscanf(linha, "%d|%49[^|]|%19[^|]|%f", &id, nome, turma, &nota) == 4) {
+            if (id == idBusca) {
+                encontrado = 1;
+                printf("Nome: %s\nTurma: %s\nNota: %.2f\n", nome, turma, nota);
+                printf("\nNovo Nome: "); fgets(nome, 50, stdin);
+                nome[strcspn(nome, "\n")] = 0;
+                printf("Nova Turma: "); fgets(turma, 20, stdin);
+                turma[strcspn(turma, "\n")] = 0;
+                printf("Nova Nota: "); scanf("%f", &nota);
+                limparBuffer();
+            }
+            fprintf(temp, "%d|%s|%s|%.2f\n", id, nome, turma, nota);
+        }
+    }
+
+    fclose(f);
+    fclose(temp);
+    remove("alunos.txt");
+    rename("temp_alunos.txt", "alunos.txt");
+
+    if (encontrado) printf(">>> Sucesso: Aluno atualizado!\n");
+    else printf("[!] Aluno nao encontrado.\n");
+}
+
+void menuDisciplinas() {
+    int op;
+    do {
+        printf("\n==================================\n");
+        printf("         DISCIPLINAS              \n");
+        printf("==================================\n");
+        printf("1. Cadastrar Disciplina\n2. Listar Disciplinas\n3. Alterar Disciplina\n0. Voltar\nOpcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        
+        if (op == 1) adicionarDisciplina();
+        else if (op == 2) listarDisciplinas();
+        else if (op == 3) alterarDisciplina();
+    } while (op != 0);
+}
+
+void menuAlunos() {
+    int op;
+    do {
+        printf("\n==================================\n");
+        printf("         ALUNOS                  \n");
+        printf("==================================\n");
+        printf("1. Cadastrar Aluno\n2. Listar Alunos\n3. Alterar Aluno\n0. Voltar\nOpcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        
+        if (op == 1) adicionar("ALUNO", "Turma");
+        else if (op == 2) listar("TURMA");
+        else if (op == 3) alterarAluno();
+    } while (op != 0);
+}
+
+void menuProfessores() {
+    int op;
+    do {
+        printf("\n==================================\n");
+        printf("         PROFESSORES              \n");
+        printf("==================================\n");
+        printf("1. Cadastrar Professor\n2. Listar Professores\n3. Alterar Professor\n0. Voltar\nOpcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        
+        if (op == 1) adicionarProfessor();
+        else if (op == 2) listarProfessores();
+        else if (op == 3) alterarProfessor();
+    } while (op != 0);
+}
+
+void menuMatriculas() {
+    int op;
+    do {
+        printf("\n==================================\n");
+        printf("         MATRICULAS               \n");
+        printf("==================================\n");
+        printf("1. Cadastrar Matricula\n2. Listar Matriculas\n3. Alterar Nota\n0. Voltar\nOpcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        
+        if (op == 1) adicionarMatricula();
+        else if (op == 2) listarMatriculas();
+        else if (op == 3) alterarMatricula();
+    } while (op != 0);
+}
+
+void menuAcademico() {
+    int op;
+    do {
+        printf("\n==================================\n");
+        printf("         SISTEMA ACADEMICO        \n");
+        printf("==================================\n");
+        printf("1. Disciplinas\n2. Alunos\n3. Professores\n4. Matriculas\n0. Voltar\nOpcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        
+        strcpy(arquivoAtual, "alunos.txt");
+        
+        if (op == 1) menuDisciplinas();
+        else if (op == 2) menuAlunos();
+        else if (op == 3) menuProfessores();
+        else if (op == 4) menuMatriculas();
+    } while (op != 0);
+}
+
+void menuHospitalar() {
+    int op;
+    do {
+         printf("\n==================================\n");
+        printf("       SISTEMA HOSPITALAR          \n");
+        printf("==================================\n");
+        printf("\n1. Cadastrar Paciente\n2. Listar Pacientes\n0. Voltar\nOpcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        strcpy(arquivoAtual, "hospital.txt");
+        if (op == 1) adicionar("PACIENTE", "Ala/Quarto");
+        else if (op == 2) listar("ALA/QUARTO");
+    } while (op != 0);
+}
+
+void menuEmpresarial() {
+    int op;
+    do {
+         printf("\n==================================\n");
+        printf("        SISTEMA EMPRESARIAL           \n");
+        printf("==================================\n");
+        printf("\n1. Cadastrar Funcionario\n2. Listar Funcionarios\n0. Voltar\nOpcao: ");
+        if (scanf("%d", &op) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+        strcpy(arquivoAtual, "empresa.txt");
+        if (op == 1) adicionar("FUNCIONARIO", "Departamento");
+        else if (op == 2) listar("DEPTO");
+    } while (op != 0);
+}
+
+int main() {
+    int escolha;
+    do {
+        printf("\n==================================\n");
+        printf("    GERENCIADOR DE BANCO DE DADOS  \n");
+        printf("==================================\n");
+        printf("1. Academico\n2. Hospitalar\n3. Empresarial\n0. Sair\n----------------------------------\nOpcao: ");
+        if (scanf("%d", &escolha) != 1) { limparBuffer(); continue; }
+        limparBuffer();
+
+        switch(escolha) {
+            case 1: menuAcademico(); break;
+            case 2: menuHospitalar(); break;
+            case 3: menuEmpresarial(); break;
+        }
+    } while (escolha != 0);
+    return 0;
+}
